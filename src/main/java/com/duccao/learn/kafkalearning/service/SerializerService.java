@@ -1,6 +1,6 @@
 package com.duccao.learn.kafkalearning.service;
 
-import com.duccao.learn.kafkalearning.entity.OutboxEvent;
+import com.duccao.learn.kafkalearning.domain.OutboxEvent;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import jakarta.annotation.PostConstruct;
@@ -32,20 +32,22 @@ public class SerializerService {
   public void init() {
     log.debug("message=\"Init MessageSerializerService\" schemaRegistryUrl={} subjectValueNameStrategy={} subjectKeyNameStrategy={}",
         schemaRegistryUrl, subjectValueNameStrategy, subjectKeyNameStrategy);
-    Map<String, String> properties = new HashMap<>();
-    properties.put("schema.registry.url", schemaRegistryUrl);
-    properties.put("auto.register.schemas", "false");
-    properties.put("value.subject.name.strategy", subjectValueNameStrategy);
-    properties.put("key.subject.name.strategy", subjectKeyNameStrategy);
+    Map<String, String> configurations = new HashMap<>();
+    configurations.put("schema.registry.url", schemaRegistryUrl);
+    configurations.put("auto.register.schemas", "false");
+
+    // TODO: go with default for now, this should be configurable in future
+//    configurations.put("value.subject.name.strategy", subjectValueNameStrategy);
+//    configurations.put("key.subject.name.strategy", subjectKeyNameStrategy);
 
     kafkaAvroKeySerializer = new KafkaAvroSerializer();
-    kafkaAvroKeySerializer.configure(properties, true);
+    kafkaAvroKeySerializer.configure(configurations, true);
 
     kafkaAvroValueSerializer = new KafkaAvroSerializer();
-    kafkaAvroValueSerializer.configure(properties, false);
+    kafkaAvroValueSerializer.configure(configurations, false);
 
     avroDeserializer = new KafkaAvroDeserializer();
-    avroDeserializer.configure(properties, false);
+    avroDeserializer.configure(configurations, false);
   }
 
   private byte[] serializeValue(String topic, Object object) {
@@ -64,7 +66,7 @@ public class SerializerService {
   }
 
   public byte[] serializeKey(OutboxEvent event) {
-    Object key = event.getKey();
+    Object key = event.key();
     if (key == null) {
       throw new IllegalArgumentException("Event key cannot be null");
     }
@@ -74,12 +76,12 @@ public class SerializerService {
     } else if (key instanceof byte[] byteKey) {
       return byteKey;
     } else {
-      return serializeKey(event.getTopic(), key);
+      return serializeKey(event.topic(), key);
     }
   }
 
   public byte[] serializePayload(OutboxEvent event) {
-    Object payload = event.getPayload();
+    Object payload = event.value();
     if (payload == null) {
       throw new IllegalArgumentException("Event key cannot be null");
     }
@@ -89,7 +91,7 @@ public class SerializerService {
     } else if (payload instanceof byte[] bytePayload) {
       return bytePayload;
     } else {
-      return serializeValue(event.getTopic(), payload);
+      return serializeValue(event.topic(), payload);
     }
   }
 }

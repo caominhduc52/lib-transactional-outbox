@@ -104,13 +104,13 @@ public class OutboxService {
     }
   }
 
-  public void saveToOutboxTable(OutboxEvent outboxEvent) {
+  public void saveToOutboxTable(com.duccao.learn.kafkalearning.domain.OutboxEvent<?, ?> outboxEvent) {
     try {
       OutboxEvent event = OutboxEvent.builder()
           .id(UUID.randomUUID().toString())
-          .idempotencyKey(outboxEvent.getIdempotencyKey())
-          .eventType(outboxEvent.getEventType())
-          .topic(outboxEvent.getTopic())
+          .idempotencyKey(outboxEvent.idempotencyKey())
+          .eventType(outboxEvent.eventType())
+          .topic(outboxEvent.topic())
           .retries(0)
           .status(OutboxEvent.EventStatus.PENDING)
           .key(serializerService.serializeKey(outboxEvent))
@@ -118,18 +118,18 @@ public class OutboxService {
           .build();
 
       log.debug("message=\"Saving outboxEvent to outbox table\" eventType={} topic={} idempotencyKey={}",
-          outboxEvent.getEventType(),
-          outboxEvent.getTopic(),
-          outboxEvent.getIdempotencyKey());
+          outboxEvent.eventType(),
+          outboxEvent.topic(),
+          outboxEvent.idempotencyKey());
       outboxEventRepository.save(event);
     } catch (Exception e) {
       log.error("message=\"Failed to save outboxEvent to outbox table\" eventType={} topic={} error={}",
-          outboxEvent.getEventType(),
-          outboxEvent.getTopic(),
+          outboxEvent.eventType(),
+          outboxEvent.topic(),
           e.getMessage(),
           e);
       throw new RuntimeException("Could not persist data to outbox outboxEvent table: "
-          + outboxEvent.getIdempotencyKey(), e.getCause());
+          + outboxEvent.idempotencyKey(), e.getCause());
     }
   }
 }
