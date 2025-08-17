@@ -1,0 +1,68 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/duccao
+    username: admin
+    password: admin
+    driver-class-name: org.postgresql.Driver
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      auto-commit: true
+      pool-name: PostgreSQLHikariCP
+      validation-timeout: 3000
+      leak-detection-threshold: 60000
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        show_sql: false
+        use_sql_comments: true
+
+        jdbc:
+          batch_size: 25
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+
+        connection:
+          provider_disables_autocommit: true
+
+        query:
+          in_clause_parameter_padding: true
+          fail_on_pagination_over_collection_fetch: true
+          plan_cache_max_size: 4096
+
+        generate_statistics: false
+        default_schema: public
+    open-in-view: false
+
+outbox:
+  task:
+    scheduler:
+      publish:
+        batch-size: 500
+        fixed-rate: 10000
+        thread-pool:
+          core-pool-size: 5
+          max-pool-size: 20
+          queue-capacity: 100
+          keep-alive-time: PT2M
+          thread-name-prefix: "outbox-publisher-"
+          allow-core-thread-time-out: false
+          rejected-execution-handler: "CallerRunsPolicy"
+      acknowledge-timeout: PT10S
+      initial-delay: 0
+    shedlock:
+      publish:
+        name: TaskScheduler_publishEventTask
+        lock-at-least-for: PT5S
+        lock-at-most-for: PT14M
+        defaultLockAtMostFor: PT30S
