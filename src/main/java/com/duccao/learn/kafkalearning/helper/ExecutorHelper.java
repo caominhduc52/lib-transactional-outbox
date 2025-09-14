@@ -1,6 +1,5 @@
 package com.duccao.learn.kafkalearning.helper;
 
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -11,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Getter
 public class ExecutorHelper {
   private final ExecutorService outboxEventProcessingPool;
   private final ExecutorService kafkaProducerPool;
