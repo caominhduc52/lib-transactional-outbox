@@ -5,6 +5,7 @@ import com.duccao.learn.kafkalearning.helper.ExecutorHelper;
 import com.duccao.learn.kafkalearning.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -43,10 +44,10 @@ public class OutboxService {
 //      lockAtLeastFor = "${outbox.task.shedlock.publish.lock-at-most-for:PT14M}",
 //      lockAtMostFor = "${outbox.task.shedlock.publish.lock-at-most-for:PT14M}")
   public void publishToKafka() {
-    ExecutorService eventProcessingPool = executorHelper.getOutboxEventProcessingPool();
-    ExecutorService kafkaProducerPool = executorHelper.getKafkaProducerPool();
+    try (ExecutorHelper.ExecutorServiceWrapper wrapper = executorHelper.newExecutorWrapper()) {
+      ExecutorService eventProcessingPool = wrapper.eventProcessingPool();
+      ExecutorService kafkaProducerPool = wrapper.kafkaProducerPool();
 
-    try {
       Instant fetchStartTime = Instant.now();
       List<OutboxEvent> unpublishedEvents = outboxEventRepository.findUnpublishedEvents(publishBatchSize);
       log.debug("message=\"Fetched unpublished events\" count={} executionTimeMs={}",
@@ -60,29 +61,7 @@ public class OutboxService {
 
       Instant kafkaPublishStartTime = Instant.now();
       List<CompletableFuture<Void>> eventPublishTasks = unpublishedEvents.stream()
-          .map(event -> CompletableFuture.runAsync(() -> {
-            log.debug("message=\"Start publishing event\" eventId={} topic={}",
-                event.getId(), event.getTopic());
-
-            byte[] payload = event.getPayload();
-            byte[] key = event.getKey();
-            String topic = event.getTopic();
-
-            kafkaTemplate.send(topic, key, payload)
-                .thenAcceptAsync(sendResult -> {
-                  log.debug("message=\"Event published successfully\" eventId={} topic={} partition={} offset={}",
-                      event.getId(), topic, sendResult.getRecordMetadata().partition(),
-                      sendResult.getRecordMetadata().offset());
-                  event.markAsPublished(sendResult.getRecordMetadata());
-                }, kafkaProducerPool)
-                .exceptionallyAsync(exception -> {
-                  log.error("message=\"Failed to publish event\" eventId={} topic={} error={}",
-                      event.getId(), topic, exception.getMessage(), exception);
-                  event.markAsRetrying();
-                  return null;
-                }, kafkaProducerPool)
-                .join();
-          }, eventProcessingPool))
+          .map(event -> createEventPublishingTask(event, kafkaProducerPool, eventProcessingPool))
           .toList();
 
       CompletableFuture.allOf(eventPublishTasks.toArray(new CompletableFuture[0])).join();
@@ -96,10 +75,34 @@ public class OutboxService {
       log.debug("message=\"Updated outbox events after publishing\" updatedCount={} executionTimeMs={}",
           unpublishedEvents.size(),
           Duration.between(databaseUpdateStartTime, Instant.now()).toMillis());
-    } finally {
-      executorHelper.shutdownExecutorService(eventProcessingPool, "eventProcessingPool");
-      executorHelper.shutdownExecutorService(kafkaProducerPool, "kafkaProducerPool");
     }
+  }
+
+  @NotNull
+  private CompletableFuture<Void> createEventPublishingTask(OutboxEvent event, ExecutorService kafkaProducerPool, ExecutorService eventProcessingPool) {
+    return CompletableFuture.runAsync(() -> {
+      log.debug("message=\"Start publishing event\" eventId={} topic={}",
+          event.getId(), event.getTopic());
+
+      byte[] payload = event.getPayload();
+      byte[] key = event.getKey();
+      String topic = event.getTopic();
+
+      kafkaTemplate.send(topic, key, payload)
+          .thenAcceptAsync(sendResult -> {
+            log.debug("message=\"Event published successfully\" eventId={} topic={} partition={} offset={}",
+                event.getId(), topic, sendResult.getRecordMetadata().partition(),
+                sendResult.getRecordMetadata().offset());
+            event.markAsPublished(sendResult.getRecordMetadata());
+          }, kafkaProducerPool)
+          .exceptionallyAsync(exception -> {
+            log.error("message=\"Failed to publish event\" eventId={} topic={} error={}",
+                event.getId(), topic, exception.getMessage(), exception);
+            event.markAsRetrying();
+            return null;
+          }, kafkaProducerPool)
+          .join();
+    }, eventProcessingPool);
   }
 
   public void saveToOutboxTable(com.duccao.learn.kafkalearning.domain.OutboxEvent<?, ?> outboxEvent) {
