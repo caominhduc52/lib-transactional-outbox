@@ -5,7 +5,6 @@ import com.duccao.learn.kafkalearning.helper.ExecutorHelper;
 import com.duccao.learn.kafkalearning.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -45,9 +44,6 @@ public class OutboxService {
 //      lockAtMostFor = "${outbox.task.shedlock.publish.lock-at-most-for:PT14M}")
   public void publishToKafka() {
     try (ExecutorHelper.ExecutorServiceWrapper wrapper = executorHelper.newExecutorWrapper()) {
-      ExecutorService eventProcessingPool = wrapper.eventProcessingPool();
-      ExecutorService kafkaProducerPool = wrapper.kafkaProducerPool();
-
       Instant fetchStartTime = Instant.now();
       List<OutboxEvent> unpublishedEvents = outboxEventRepository.findUnpublishedEvents(publishBatchSize);
       log.debug("message=\"Fetched unpublished events\" count={} executionTimeMs={}",
@@ -61,7 +57,7 @@ public class OutboxService {
 
       Instant kafkaPublishStartTime = Instant.now();
       List<CompletableFuture<Void>> eventPublishTasks = unpublishedEvents.stream()
-          .map(event -> createEventPublishingTask(event, kafkaProducerPool, eventProcessingPool))
+          .map(event -> createEventPublishingTask(event, wrapper))
           .toList();
 
       CompletableFuture.allOf(eventPublishTasks.toArray(new CompletableFuture[0])).join();
@@ -78,12 +74,12 @@ public class OutboxService {
     }
   }
 
-  @NotNull
-  private CompletableFuture<Void> createEventPublishingTask(OutboxEvent event, ExecutorService kafkaProducerPool, ExecutorService eventProcessingPool) {
-    return CompletableFuture.runAsync(() -> {
-      log.debug("message=\"Start publishing event\" eventId={} topic={}",
-          event.getId(), event.getTopic());
+  private CompletableFuture<Void> createEventPublishingTask(OutboxEvent event, ExecutorHelper.ExecutorServiceWrapper wrapper) {
+    ExecutorService eventProcessingPool = wrapper.eventProcessingPool();
+    ExecutorService kafkaProducerPool = wrapper.kafkaProducerPool();
 
+    return CompletableFuture.runAsync(() -> {
+      log.debug("message=\"Start publishing event\" eventId={} topic={}", event.getId(), event.getTopic());
       byte[] payload = event.getPayload();
       byte[] key = event.getKey();
       String topic = event.getTopic();
