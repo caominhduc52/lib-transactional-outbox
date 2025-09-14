@@ -2,6 +2,11 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.4'
     id 'io.spring.dependency-management' version '1.1.7'
+    id("maven-publish")
+}
+
+ext {
+    resilience4jVersion = "2.3.0"
 }
 
 group = 'com.duccao.learn'
@@ -37,6 +42,12 @@ dependencies {
     implementation("org.apache.kafka:kafka-streams")
     implementation("io.confluent:kafka-avro-serializer:5.5.14")
     implementation("io.confluent:kafka-schema-registry-client:5.5.14")
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:${property("resilience4jVersion")}")
+    implementation("io.github.resilience4j:resilience4j-ratelimiter:${property("resilience4jVersion")}")
+    implementation("io.github.resilience4j:resilience4j-retry:${property("resilience4jVersion")}")
+    implementation("io.github.resilience4j:resilience4j-bulkhead:${property("resilience4jVersion")}")
+    implementation("io.github.resilience4j:resilience4j-cache:${property("resilience4jVersion")}")
+    implementation("io.github.resilience4j:resilience4j-timelimiter:${property("resilience4jVersion")}")
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
@@ -52,3 +63,16 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+
+            groupId = 'com.duccao.outbox'
+            artifactId = 'outbox'
+            version = '0.0.1-SNAPSHOT'
+        }
+    }
+}
+

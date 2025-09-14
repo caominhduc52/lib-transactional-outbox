@@ -5,7 +5,6 @@ import com.duccao.learn.kafkalearning.helper.ExecutorHelper;
 import com.duccao.learn.kafkalearning.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -39,11 +37,11 @@ public class OutboxService {
 
   @Scheduled(
       fixedRateString = "${outbox.task.scheduler.publish.fixed-rate:10000}",
-      initialDelayString = "${outbox.task.scheduler.initial-delay:0}")
-  @SchedulerLock(
-      name = "${outbox.task.shedlock.publish.name:TaskScheduler_publishEventTask}",
-      lockAtLeastFor = "${outbox.task.shedlock.publish.lock-at-most-for:PT14M",
-      lockAtMostFor = "${outbox.task.shedlock.publish.lock-at-most-for:PT14M")
+      initialDelayString = "${outbox.task.scheduler.initial-delay:50000}")
+//  @SchedulerLock(
+//      name = "${outbox.task.shedlock.publish.name:TaskScheduler_publishEventTask}",
+//      lockAtLeastFor = "${outbox.task.shedlock.publish.lock-at-most-for:PT14M}",
+//      lockAtMostFor = "${outbox.task.shedlock.publish.lock-at-most-for:PT14M}")
   public void publishToKafka() {
     ExecutorService eventProcessingPool = executorHelper.getOutboxEventProcessingPool();
     ExecutorService kafkaProducerPool = executorHelper.getKafkaProducerPool();
@@ -107,7 +105,6 @@ public class OutboxService {
   public void saveToOutboxTable(com.duccao.learn.kafkalearning.domain.OutboxEvent<?, ?> outboxEvent) {
     try {
       OutboxEvent event = OutboxEvent.builder()
-          .id(UUID.randomUUID().toString())
           .idempotencyKey(outboxEvent.idempotencyKey())
           .eventType(outboxEvent.eventType())
           .topic(outboxEvent.topic())

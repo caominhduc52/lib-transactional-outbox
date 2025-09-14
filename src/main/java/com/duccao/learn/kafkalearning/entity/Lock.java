@@ -28,7 +28,7 @@ public class Lock {
   @GeneratedValue(strategy = GenerationType.UUID)
   private String id;
 
-  @Column(name = "name")
+  @Column(name = "name", nullable = false, unique = true)
   private String name;
 
   @Column(name = "lock_until")

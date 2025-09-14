@@ -14,7 +14,7 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, String
   @Query(value = """
       SELECT * 
       FROM outbox_event o 
-      WHERE o.published_time = 'PENDING'
+      WHERE o.status = 'PENDING'
       ORDER BY o.created_time ASC 
       LIMIT :batchSize
       """, nativeQuery = true)

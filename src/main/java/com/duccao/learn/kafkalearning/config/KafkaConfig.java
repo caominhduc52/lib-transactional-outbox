@@ -18,7 +18,7 @@ public class KafkaConfig {
 
   @ConditionalOnMissingBean
   @Bean
-  public ProducerFactory<byte[], byte[]> producerFactory() {
+  public ProducerFactory<byte[], byte[]> byteProducerFactory() {
     Map<String, Object> configurations = new HashMap<>();
     configurations.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
     configurations.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
@@ -27,7 +27,7 @@ public class KafkaConfig {
 
   @ConditionalOnMissingBean
   @Bean
-  public KafkaTemplate<byte[], byte[]> kafkaTemplate(ProducerFactory<byte[], byte[]> producerFactory) {
+  public KafkaTemplate<byte[], byte[]> byteKafkaTemplate(ProducerFactory<byte[], byte[]> producerFactory) {
     KafkaTemplate<byte[], byte[]> kafkaTemplate = new KafkaTemplate<>(producerFactory);
     kafkaTemplate.setProducerListener(new LoggingProducerListener<>());
     return kafkaTemplate;
